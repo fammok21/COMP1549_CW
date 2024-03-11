@@ -1,4 +1,5 @@
 package week3;
+
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
@@ -29,6 +30,10 @@ public class ChatServer {
             while (true) {
                 // Assign a thread from the pool to handle each client connection
                 pool.execute(new Handler(listener.accept()));
+
+                // Create a new thread to run the checkClients method
+                Thread coordinatorThread = new Thread(() -> coordinator.checkClients(names));
+                coordinatorThread.start(); // Start the thread
             }
         }
     }
@@ -68,12 +73,13 @@ public class ChatServer {
 
                 // If no coordinator has been set yet, set it to the current client
                 if (coordinator == null) {
-                    coordinator = new Coordinator(name);
-                    System.out.println("Coordinator is " + coordinator.name);
+                    User coordinatorUser = new User("localhost", 59001, name); // Assuming localhost and port 59001
+                    coordinator = new Coordinator(coordinatorUser);
+                    System.out.println("Coordinator is " + coordinator.user.getUsername());
                     out.println("COORDINATOR " + name); // Inform client they are the coordinator
                     // Inform other clients about the new coordinator
                     for (PrintWriter writer : writers) {
-                        writer.println("COORDINATOR " + coordinator + " has joined");
+                        writer.println("COORDINATOR " + coordinator.user.getUsername() + " has joined");
                     }
                 }
 
@@ -85,10 +91,14 @@ public class ChatServer {
                 }
 
                 writers.add(out); // Add the client's output stream to the list of writers
-                out.println("WELCOME " + coordinator.name);
+                out.println("WELCOME " + coordinator.user.getUsername());
                 // Continuously receive and broadcast messages from the client
                 while (true) {
                     String input = in.nextLine(); // Receive message from client
+                    if (input.toLowerCase().startsWith("query")) {
+                        // Send the list of names back to the client
+                        out.println("NAMES " + String.join(", ", names));
+                    }
                     if (input.toLowerCase().startsWith("/quit")) {
                         return; // Exit loop if client wants to quit
                     }
@@ -118,14 +128,15 @@ public class ChatServer {
                     // Handle socket closure exception
                 }
                 // Handle coordinator selection if leaving client was the coordinator
-                if (coordinator != null && name.equals(coordinator.name)) {
+                if (coordinator != null && name.equals(coordinator.user.getUsername())) {
                     // Select a new coordinator if other clients are present
                     if (!names.isEmpty()) {
-                        coordinator = new Coordinator(names.get(0)); // Choose the first client as the new coordinator
-                        System.out.println("Coordinator is now " + coordinator.name);
+                        User newCoordinatorUser = new User("localhost", 59001, names.get(0)); // Assuming localhost and port 59001
+                        coordinator = new Coordinator(newCoordinatorUser); // Choose the first client as the new coordinator
+                        System.out.println("Coordinator is now " + coordinator.user.getUsername());
                         // Inform all clients about the new coordinator
                         for (PrintWriter writer : writers) {
-                            writer.println("NEW_COORDINATOR " + coordinator.name);
+                            writer.println("NEW_COORDINATOR " + coordinator.user.getUsername());
                         }
                     } else {
                         coordinator = null; // Reset coordinator to null if no clients remain
