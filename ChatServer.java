@@ -20,6 +20,21 @@ public class ChatServer {
         System.out.println("The chat server is running...");
         ExecutorService pool = Executors.newFixedThreadPool(500);
 
+        // Start a thread to periodically check and display active members
+        new Thread(() -> {
+            while (true) {
+                try {
+                    Thread.sleep(20000); // 20 seconds
+                    synchronized (names) {
+                        System.out.println("Active Group Members: " + String.join(", ", names));
+                        // Optional: Here, you could also invoke coordinator.checkClients(names) if it fits your design
+                    }
+                } catch (InterruptedException e) {
+                    System.out.println("Coordinator's periodic check interrupted.");
+                }
+            }
+        }).start();
+
         try (ServerSocket listener = new ServerSocket(59001)) {
             while (true) {
                 pool.execute(new Handler(listener.accept()));
@@ -66,6 +81,7 @@ public class ChatServer {
 
                 out.println("NAMEACCEPTED " + name);
                 broadcastMessage("MESSAGE " + name + " has joined");
+                out.println("MESSAGE Current coordinator is: " + (coordinator != null ? coordinator.user.getUsername() : "not set"));
 
                 while (true) {
                     String input = in.nextLine();
@@ -145,4 +161,3 @@ public class ChatServer {
         }
     }
 }
-
