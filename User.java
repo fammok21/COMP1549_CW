@@ -1,4 +1,4 @@
-package coursework_files;
+package week3;
 
 public class User {
     private String serverAddress; // Holds the server address the user connects to
