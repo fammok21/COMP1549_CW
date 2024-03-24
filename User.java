@@ -1,13 +1,25 @@
-package week3; 
+package coursework_files;
 
-// The User class represents a user in the chat application, encapsulating user details.
 public class User {
-    private String serverAddress; // Server address the user connects to
-    private int port; // Port number for the server connection
-    private String username; // Username of the user
+    private String serverAddress; // Holds the server address the user connects to
+    private int port; // Holds the port number for the server connection
+    private String username; // Holds the username of the user
 
-    // Constructor initializes a new User with server address, port, and username
+    // Constructor with input validation for fault tolerance
+    // Ensures the user object is always in a valid state
     public User(String serverAddress, int port, String username) {
+        // Validate server address (Fault Tolerance)
+        if (serverAddress == null || serverAddress.isEmpty()) {
+            throw new IllegalArgumentException("Server address cannot be null or empty");
+        }
+        // Validate port number (Fault Tolerance)
+        if (port <= 0) {
+            throw new IllegalArgumentException("Port number must be positive");
+        }
+        // Validate username (Fault Tolerance)
+        if (username == null || username.isEmpty()) {
+            throw new IllegalArgumentException("Username cannot be null or empty");
+        }
         this.serverAddress = serverAddress;
         this.port = port;
         this.username = username;
@@ -28,38 +40,49 @@ public class User {
         return username;
     }
 
-    // Static inner Builder class for User, following the Builder pattern for constructing User objects.
+    // Static inner Builder class for User, implementing the Builder pattern.
+    // Allows for fluent setting of User properties.
     public static class UserBuilder {
-        private String serverAddress; // Server address
-        private int port; // Port number
-        private String username; // Username
+        private String serverAddress; // Intended server address
+        private int port; // Intended port number
+        private String username; // Intended username
 
-        // Constructor for UserBuilder with required fields
+        // Constructor for the Builder with initial values
         public UserBuilder(String serverAddress, int port, String username) {
             this.serverAddress = serverAddress;
             this.port = port;
             this.username = username;
         }
 
-        // Setter for server address, returns the builder for chaining
+        // Setter for server address with input validation (Fault Tolerance)
         public UserBuilder setServerAddress(String serverAddress) {
+            if (serverAddress == null || serverAddress.isEmpty()) {
+                throw new IllegalArgumentException("Server address cannot be null or empty");
+            }
             this.serverAddress = serverAddress;
-            return this;
+            return this; // Return the builder for chaining
         }
 
-        // Setter for port, returns the builder for chaining
+        // Setter for port with input validation (Fault Tolerance)
         public UserBuilder setPort(int port) {
+            if (port <= 0) {
+                throw new IllegalArgumentException("Port number must be positive");
+            }
             this.port = port;
-            return this;
+            return this; // Return the builder for chaining
         }
 
-        // Setter for username, returns the builder for chaining
+        // Setter for username with input validation (Fault Tolerance)
         public UserBuilder setUsername(String username) {
+            if (username == null || username.isEmpty()) {
+                throw new IllegalArgumentException("Username cannot be null or empty");
+            }
             this.username = username;
-            return this;
+            return this; // Return the builder for chaining
         }
 
-        // Build method constructs a User object from the builder's values
+        // Build method constructs a User object using the builder's values
+        // This step also inherently applies the validation logic before creating the User object
         public User build() {
             return new User(serverAddress, port, username);
         }
