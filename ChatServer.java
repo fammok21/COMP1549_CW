@@ -9,47 +9,53 @@ import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
-// The ChatServer class manages client connections, messages, and coordinates chat functionalities.
 public class ChatServer {
 
-    private static List<String> names = new ArrayList<>(); // Stores unique names of connected clients
-    private static List<PrintWriter> writers = new ArrayList<>(); // Stores PrintWriter objects for all clients to broadcast messages
-    private static Coordinator coordinator = null; // Stores the coordinator's details
+    // List of all the client names and their print writers for message broadcasting.
+    private static final List<String> names = new ArrayList<>();
+    private static final List<PrintWriter> writers = new ArrayList<>();
+    
+    // Coordinator management using a Singleton Pattern.
+    private static Coordinator coordinator = null;
+    
+    // Executor for scheduled tasks, like updating the active user list.
+    private static final ScheduledExecutorService userUpdateScheduler = Executors.newSingleThreadScheduledExecutor();
 
     public static void main(String[] args) throws Exception {
         System.out.println("The chat server is running...");
-        ExecutorService pool = Executors.newFixedThreadPool(500); // Thread pool for handling client connections
+        ExecutorService pool = Executors.newFixedThreadPool(500);
 
-        // Start a thread to periodically check and display active members
-        new Thread(() -> {
-            while (true) {
-                try {
-                    Thread.sleep(20000); // Sleep for 20 seconds
-                    synchronized (names) {
-                        // Display active group members every 20 seconds
-                        System.out.println("Active Group Members: " + String.join(", ", names));
-                    }
-                } catch (InterruptedException e) {
-                    System.out.println("Coordinator's periodic check interrupted.");
-                }
-            }
-        }).start();
+        // Schedule a task to update the console with the active user list every 20 seconds.
+        userUpdateScheduler.scheduleAtFixedRate(() -> System.out.println("Active users: " + String.join(", ", names)),
+            0, 20, TimeUnit.SECONDS);
+
+        // Shutdown hook to clean up resources upon server shutdown.
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            System.out.println("Shutting down chat server...");
+            pool.shutdown();
+            userUpdateScheduler.shutdownNow();
+        }));
 
         try (ServerSocket listener = new ServerSocket(59001)) {
             while (true) {
-                // Accept new client connections and handle them in the thread pool
-                pool.execute(new Handler(listener.accept()));
+                try {
+                    Socket socket = listener.accept();
+                    pool.execute(new Handler(socket));
+                } catch (IOException e) {
+                    System.err.println("Could not accept client connection: " + e.getMessage());
+                }
             }
         }
     }
 
-    // Inner class to handle individual client connections
     private static class Handler implements Runnable {
-        private String name; // Stores the client's name
-        private Socket socket; // Socket to communicate with the client
-        private Scanner in; // Scanner to read messages from the client
-        private PrintWriter out; // PrintWriter to send messages to the client
+        private String name;
+        private final Socket socket;
+        private Scanner in;
+        private PrintWriter out;
 
         public Handler(Socket socket) {
             this.socket = socket;
@@ -61,66 +67,60 @@ public class ChatServer {
                 in = new Scanner(socket.getInputStream());
                 out = new PrintWriter(socket.getOutputStream(), true);
 
-                // Client name registration loop
+                // Client name registration.
                 while (true) {
                     out.println("SUBMITNAME");
                     name = in.nextLine();
                     if (name == null || name.isEmpty() || names.contains(name)) {
-                        return; // Reject connection if name is invalid or already taken
+                        return;
                     }
                     synchronized (this) {
                         if (!names.contains(name)) {
                             names.add(name);
                             writers.add(out);
+                            // First user becomes the coordinator.
                             if (coordinator == null) {
-                                // Assign the first connected user as the coordinator
                                 coordinator = new Coordinator(new User(socket.getInetAddress().getHostAddress(), socket.getPort(), name));
-                                out.println("MESSAGE You are now the coordinator.");
+                                broadcastMessage("MESSAGE " + name + " is now the coordinator.");
                             } else {
                                 out.println("MESSAGE Current coordinator is: " + coordinator.user.getUsername());
                             }
-                            break; // Exit the loop once a unique name is submitted
+                            break;
                         }
                     }
                 }
 
-                // Notify others that a new client has joined
                 out.println("NAMEACCEPTED " + name);
                 broadcastMessage("MESSAGE " + name + " has joined");
-                out.println("MESSAGE Current coordinator is: " + (coordinator != null ? coordinator.user.getUsername() : "not set"));
 
-                // Main loop to process incoming messages
+                // Message processing.
                 while (true) {
                     String input = in.nextLine();
                     if (input.toLowerCase().startsWith("/quit")) {
-                        return; // Handle client disconnection
+                        return;
                     }
                     if (input.startsWith("@")) {
-                        // Handle private messages
                         handlePrivateMessage(input);
+                        out.println("MESSAGE (private) to " + input.substring(1, input.indexOf(' ')) + ": " + input.substring(input.indexOf(' ') + 1));
                     } else {
-                        // Broadcast public messages
                         broadcastMessage("MESSAGE " + name + ": " + input);
                     }
                 }
             } catch (Exception e) {
-                System.out.println(e.getMessage());
+                System.err.println("Error handling client " + name + ": " + e.getMessage());
             } finally {
-                // Cleanup resources on disconnection
                 cleanUp();
             }
         }
 
-        // Broadcasts a message to all clients
+        // Broadcasts a message to all clients.
         private void broadcastMessage(String message) {
-            for (PrintWriter writer : writers) {
-                writer.println(message);
-            }
+            writers.forEach(writer -> writer.println(message));
         }
 
-        // Handles sending a private message to a specific user
+        // Handles private messages between clients.
         private void handlePrivateMessage(String input) {
-            int firstSpace = input.indexOf(" ");
+            int firstSpace = input.indexOf(' ');
             if (firstSpace != -1) {
                 String targetName = input.substring(1, firstSpace);
                 String message = input.substring(firstSpace + 1);
@@ -128,22 +128,20 @@ public class ChatServer {
             }
         }
 
-        // Sends a private message to a user if they are connected
+        // Sends a private message to a specific user.
         private void sendMessageToUser(String targetName, String senderName, String message) {
             synchronized (this) {
                 int index = names.indexOf(targetName);
                 if (index != -1) {
                     PrintWriter writer = writers.get(index);
                     writer.println("MESSAGE (private) from " + senderName + ": " + message);
-                    // Echo the private message back to the sender
-                    out.println("MESSAGE (private) to " + targetName + ": " + message);
                 } else {
                     out.println("MESSAGE User " + targetName + " not found.");
                 }
             }
         }
 
-        // Cleans up resources when a client disconnects and selects a new coordinator if necessary
+        // Cleans up resources when a client disconnects and reassigns coordinator if necessary.
         private void cleanUp() {
             if (name != null && !name.isEmpty()) {
                 synchronized (this) {
@@ -158,20 +156,23 @@ public class ChatServer {
             try {
                 socket.close();
             } catch (IOException e) {
-                System.out.println("Could not close a socket: " + e.getMessage());
+                System.err.println("Could not close the socket for " + name + ": " + e.getMessage());
             }
         }
 
-        // Selects a new coordinator among the remaining connected clients
+        // Reassigns the coordinator role if the current coordinator leaves.
         private void selectNewCoordinator() {
-            if (!names.isEmpty()) {
-                String newCoordinatorName = names.get(0);
-                coordinator = new Coordinator(new User(socket.getInetAddress().getHostAddress(), socket.getPort(), newCoordinatorName));
-                broadcastMessage("NEW_COORDINATOR " + newCoordinatorName);
-            } else {
-                coordinator = null; // Reset if no users are left
+            synchronized (this) {
+                if (!names.isEmpty()) {
+                    String newCoordinatorName = names.get(0);
+                    coordinator = new Coordinator(new User(socket.getInetAddress().getHostAddress(), socket.getPort(), newCoordinatorName));
+                    broadcastMessage("NEW_COORDINATOR " + newCoordinatorName);
+                } else {
+                    coordinator = null; // Reset if no users are left
+                    // Notify all that there's currently no coordinator
+                    broadcastMessage("MESSAGE No coordinator is currently assigned.");
+                }
             }
         }
     }
 }
-
