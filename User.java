@@ -1,4 +1,4 @@
-package week3;
+package cwFinal;
 
 public class User {
     private String serverAddress; // Holds the server address the user connects to
