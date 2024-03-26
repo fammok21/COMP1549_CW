@@ -1,4 +1,4 @@
-package week3;
+package cwFinal;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
