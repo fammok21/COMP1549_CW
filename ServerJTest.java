@@ -1,4 +1,4 @@
-package cw_final;
+package cwFinal;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
