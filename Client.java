@@ -1,4 +1,4 @@
-package week3;
+package cwFinal;
 
 import java.awt.BorderLayout;
 import java.awt.event.ActionEvent;
@@ -14,7 +14,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 
-public class ChatClient {
+public class Client {
     User user;
     Scanner in;
     PrintWriter out;
@@ -22,7 +22,7 @@ public class ChatClient {
     JTextField textField = new JTextField(50);
     JTextArea messageArea = new JTextArea(16, 50);
 
-    public ChatClient(User user) {
+    public Client(User user) {
         this.user = user;
         setupGUI();
         addActionListenerToSendMessages();
@@ -84,6 +84,9 @@ public class ChatClient {
     }
 
     private void processLine(String line) {
+        // Generate a timestamp for the current message
+        String timestamp = java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+
         // Check the type of message received from the server and act accordingly
         if (line.startsWith("NAMEACCEPTED")) {
             // The server has accepted the client's username
@@ -91,27 +94,25 @@ public class ChatClient {
             textField.setEditable(true); // Enable the text field to allow message input
         } else if (line.startsWith("MESSAGE")) {
             // A chat message to display
-            messageArea.append(line.substring(8) + "\n"); // Append the message content to the chat display, skipping the "MESSAGE " prefix
+            messageArea.append("[" + timestamp + "] " + line.substring(8) + "\n"); // Append the message content to the chat display, skipping the "MESSAGE " prefix
         } else if (line.startsWith("COORDINATOR")) {
             // Coordinator status update
             String coordinatorName = line.substring(12); // Extract the coordinator's name
-            messageArea.append("The coordinator is now: " + coordinatorName + "\n"); // Display the coordinator update
+            messageArea.append("[" + timestamp + "] The coordinator is now: " + coordinatorName + "\n"); // Display the coordinator update
         } else if (line.startsWith("NEW_COORDINATOR")) {
             // A new coordinator has been appointed
             String newCoordinatorName = line.substring(16); // Extract the new coordinator's name
-            messageArea.append("A new coordinator has been appointed: " + newCoordinatorName + "\n"); // Display the new coordinator announcement
+            messageArea.append("[" + timestamp + "] A new coordinator has been appointed: " + newCoordinatorName + "\n"); // Display the new coordinator announcement
         } else if (line.startsWith("WELCOME")) {
             // Welcome message for new clients, including the current coordinator's name
             String coordinatorName = line.substring(8); // Extract the coordinator's name from the message
-            messageArea.append("The current coordinator is: " + coordinatorName + "\n"); // Display the current coordinator's name
-        } else if (line.startsWith("NAMES")) {
-            // A message listing all connected usernames
-            String namesMessage = line.substring(6); // Extract the names list from the message
-            messageArea.append("Connected users: " + namesMessage + "\n"); // Display the list of connected users
+            messageArea.append("[" + timestamp + "] The current coordinator is: " + coordinatorName + "\n"); // Display the current coordinator's name
         }
+
         // Scroll the message area to the end to make sure the latest messages are visible
         messageArea.setCaretPosition(messageArea.getDocument().getLength());
     }
+
     
  // Closes scanner and print writer resources
     private void closeResources() {
@@ -140,10 +141,9 @@ public class ChatClient {
         );
 
         User user = new User(serverAddress, port, username);
-        ChatClient chatClient = new ChatClient(user);
-        chatClient.frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        chatClient.frame.setVisible(true);
-        chatClient.run();
+        Client Client = new Client(user);
+        Client.frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        Client.frame.setVisible(true);
+        Client.run();
     }
 }
-
