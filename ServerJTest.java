@@ -10,7 +10,7 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.Scanner;
 
-public class ChatServerTest {
+public class ServerJTest {
     
     private static Thread serverThread;
 
@@ -20,7 +20,7 @@ public class ChatServerTest {
         serverThread = new Thread(() -> {
             try {
                 String[] args = {};
-                ChatServer.main(args); // Start the server
+                Server.main(args); // Start the server
             } catch (Exception e) {
                 e.printStackTrace();
             }
